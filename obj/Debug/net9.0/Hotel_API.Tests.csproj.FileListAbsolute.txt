@@ -1,0 +1,6 @@
+D:\Workspace\01 Project\Project Dev\Graduation project\Main Project\Hotel_API\obj\Debug\net9.0\Hotel_API.Tests.csproj.AssemblyReference.cache
+D:\Workspace\01 Project\Project Dev\Graduation project\Main Project\Hotel_API\obj\Debug\net9.0\MvcTestingAppManifest.json
+D:\Workspace\01 Project\Project Dev\Graduation project\Main Project\Hotel_API\obj\Debug\net9.0\Hotel_API.Tests.GeneratedMSBuildEditorConfig.editorconfig
+D:\Workspace\01 Project\Project Dev\Graduation project\Main Project\Hotel_API\obj\Debug\net9.0\Hotel_API.Tests.AssemblyInfoInputs.cache
+D:\Workspace\01 Project\Project Dev\Graduation project\Main Project\Hotel_API\obj\Debug\net9.0\Hotel_API.Tests.AssemblyInfo.cs
+D:\Workspace\01 Project\Project Dev\Graduation project\Main Project\Hotel_API\obj\Debug\net9.0\Hotel_API.Tests.csproj.CoreCompileInputs.cache
