@@ -14,13 +14,25 @@ namespace Hotel_API.Models.ViewModels
         public string? Loai { get; set; }
 
         /// <summary>
-        /// Có thể là URL hoặc sẽ upload file riêng
+        /// Có thể là URL hoặc Base64 string của ảnh
         /// </summary>
         public string? DuongDanMedia { get; set; }
 
         public Guid? MonAnId { get; set; }
 
         public string? Hashtags { get; set; }
+    }
+
+    /// <summary>
+    /// DTO để upload ảnh dưới dạng Base64
+    /// </summary>
+    public class ImageUploadDto
+    {
+        [Required(ErrorMessage = "Dữ liệu ảnh không được để trống")]
+        public string ImageBase64 { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Tên file không được để trống")]
+        public string FileName { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -60,6 +72,15 @@ namespace Hotel_API.Models.ViewModels
     }
 
     /// <summary>
+    /// DTO cho danh sách bài viết với infinity scroll (cursor-based)
+    /// </summary>
+    public class PostInfinityResult
+    {
+        public List<PostDto> Posts { get; set; } = new();
+        public bool HasMore { get; set; }
+    }
+
+    /// <summary>
     /// DTO để tạo comment
     /// </summary>
     public class CreateCommentDto
@@ -88,6 +109,29 @@ namespace Hotel_API.Models.ViewModels
 
         // Replies cho comment cha
         public List<CommentDto> Replies { get; set; } = new();
+    }
+
+    /// <summary>
+    /// DTO cho danh sách bình luận có phân trang
+    /// </summary>
+    public class CommentPagedResult
+    {
+        public List<CommentDto> Comments { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
+        public bool HasPrevious => Page > 1;
+        public bool HasNext => Page < TotalPages;
+    }
+
+    /// <summary>
+    /// DTO cho danh sách bình luận với infinity scroll (cursor-based)
+    /// </summary>
+    public class CommentInfinityResult
+    {
+        public List<CommentDto> Comments { get; set; } = new();
+        public bool HasMore { get; set; }
     }
 
     /// <summary>

@@ -13,6 +13,12 @@ namespace Hotel_API.Data
         public DbSet<BaiDang> BaiDang { get; set; }
         public DbSet<BinhLuan> BinhLuan { get; set; }
         public DbSet<BaiDang_LuotThich> BaiDang_LuotThich { get; set; }
+        public DbSet<BaiThuoc> BaiThuocs { get; set; }
+        public DbSet<MonAn> MonAns { get; set; }
+        public DbSet<HealthProfile> HealthProfiles { get; set; }
+        public DbSet<HealthPlan> HealthPlans { get; set; }
+        public DbSet<PredictionHistory> PredictionHistories { get; set; }
+        public DbSet<PredictionDetail> PredictionDetails { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

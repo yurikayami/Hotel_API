@@ -1,0 +1,99 @@
+### Test Upload Image with Base64
+
+@host = https://localhost:7135
+@token = YOUR_JWT_TOKEN_HERE
+
+### Get test - để xác thực API còn sống
+GET {{host}}/api/post
+Authorization: Bearer {{token}}
+
+### Upload Image with Base64 - Ví dụ 1: Base64 đơn giản
+POST {{host}}/api/post/upload
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "fileName": "test.png"
+}
+
+### Upload Image with Base64 - Ví dụ 2: Với Data URL prefix
+POST {{host}}/api/post/upload
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "fileName": "test-with-prefix.png"
+}
+
+### Test Error - File không hợp lệ (tệp .txt)
+POST {{host}}/api/post/upload
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "aGVsbG8gd29ybGQ=",
+  "fileName": "test.txt"
+}
+
+### Test Error - Base64 không hợp lệ
+POST {{host}}/api/post/upload
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "invalid-base64-string!!!",
+  "fileName": "test.png"
+}
+
+### Test Error - Missing fileName
+POST {{host}}/api/post/upload
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+}
+
+### Tạo bài viết với ảnh Base64
+POST {{host}}/api/post
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "noiDung": "Bài viết test với ảnh Base64",
+  "loai": "post",
+  "duongDanMedia": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "hashtags": "#test #base64"
+}
+
+### ========================================
+### FOOD ANALYSIS - Phân tích ảnh món ăn
+### ========================================
+
+### Phân tích ảnh với Base64 - Ví dụ 1: Base64 đơn giản
+POST {{host}}/api/FoodAnalysis/analyze
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "fileName": "food.png",
+  "mealType": "lunch"
+}
+
+### Phân tích ảnh với Base64 - Ví dụ 2: Với Data URL prefix
+POST {{host}}/api/FoodAnalysis/analyze
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "imageBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "fileName": "food.png",
+  "mealType": "breakfast"
+}
+
+### Lấy lịch sử phân tích
+GET {{host}}/api/FoodAnalysis/history
+Authorization: Bearer {{token}}

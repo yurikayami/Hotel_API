@@ -28,6 +28,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 
 // Add Services
 builder.Services.AddScoped<MediaUrlService>();
+builder.Services.AddScoped<SearchService>();
+builder.Services.AddScoped<GeminiService>();
+
+// Add HttpClient for GeminiService
+builder.Services.AddHttpClient();
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -115,13 +120,30 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Include XML comments if available
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
+    // Add filter to handle IFormFile parameters in Swagger
+    c.OperationFilter<FormFileSwaggerOperationFilter>();
+
+    // Include XML comments if available (with error handling)
+    try
     {
-        c.IncludeXmlComments(xmlPath);
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Warning: Could not load XML comments: {ex.Message}");
+    }
+});
+
+// Configure Kestrel to listen on all network interfaces
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(7135, listenOptions => listenOptions.UseHttps()); // HTTPS
+    options.ListenAnyIP(5217); // HTTP
 });
 
 var app = builder.Build();

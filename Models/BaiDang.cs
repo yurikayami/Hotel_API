@@ -24,7 +24,6 @@ namespace Hotel_API.Models
         public DateTime? NgayDang { get; set; }
 
         public Guid? Id_MonAn { get; set; }
-
         public int? LuotThich { get; set; }
 
         public int? SoBinhLuan { get; set; }

@@ -27,6 +27,253 @@ namespace Hotel_API.Controllers
         }
 
         /// <summary>
+        /// Lấy home feed với thuật toán mix content
+        /// </summary>
+        [HttpGet("feed")]
+        [ProducesResponseType(typeof(List<object>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<object>>> GetFeed([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                if (page < 1) page = 1;
+                if (pageSize < 1 || pageSize > 50) pageSize = 10;
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var feedItems = new List<object>();
+
+                // Mix content theo thuật toán:
+                // 2 Friend Posts + 2 Friend BaiThuoc + 3 Top BaiThuoc + 2 Random Posts + 1 Random BaiThuoc
+
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    // TODO: Get friend posts when Friendship table is implemented
+                    // For now, get recent posts
+                    var recentPosts = await _context.BaiDang
+                        .Include(p => p.ApplicationUser)
+                        .Where(p => p.DaDuyet == true || p.DaDuyet == null)
+                        .OrderByDescending(p => p.NgayDang)
+                        .Take(4)
+                        .Select(p => new
+                        {
+                            p.Id,
+                            Type = "Post",
+                            Content = p.NoiDung,
+                            ImageUrl = p.DuongDanMedia,
+                            NgayDang = p.NgayDang,
+                            SoBinhLuan = p.SoBinhLuan,
+                            SoChiaSe = p.so_chia_se,
+                            LuotThich = p.LuotThich,
+                            IsLiked = false, // TODO: Check if user liked
+                            AuthorId = p.NguoiDungId,
+                            AuthorName = p.ApplicationUser != null ? p.ApplicationUser.UserName : "Unknown",
+                            Avartar = p.ApplicationUser != null ? p.ApplicationUser.ProfilePicture : null
+                        })
+                        .ToListAsync();
+
+                    feedItems.AddRange(recentPosts.Select(p => new
+                    {
+                        p.Id,
+                        p.Type,
+                        p.Content,
+                        ImageUrl = _mediaUrlService.GetFullMediaUrl(p.ImageUrl),
+                        p.NgayDang,
+                        p.SoBinhLuan,
+                        p.SoChiaSe,
+                        p.LuotThich,
+                        p.IsLiked,
+                        p.AuthorId,
+                        p.AuthorName,
+                        Avartar = _mediaUrlService.GetFullMediaUrl(p.Avartar)
+                    }));
+                }
+
+                // Get top BaiThuoc by views
+                var topBaiThuoc = await _context.BaiThuocs
+                    .Include(b => b.ApplicationUser)
+                    .Where(b => b.TrangThai == 1)
+                    .OrderByDescending(b => b.SoLuotXem)
+                    .Take(3)
+                    .Select(b => new
+                    {
+                        b.Id,
+                        Type = "BaiThuoc",
+                        Content = b.MoTa,
+                        ImageUrl = b.Image,
+                        NgayDang = b.NgayTao,
+                        SoBinhLuan = 0,
+                        SoChiaSe = 0,
+                        LuotThich = b.SoLuotThich ?? 0,
+                        IsLiked = false,
+                        AuthorId = b.NguoiDungId,
+                        AuthorName = b.ApplicationUser != null ? b.ApplicationUser.UserName : "Unknown",
+                        Avartar = b.ApplicationUser != null ? b.ApplicationUser.ProfilePicture : null,
+                        TieuDe = b.Ten
+                    })
+                    .ToListAsync();
+
+                feedItems.AddRange(topBaiThuoc.Select(b => new
+                {
+                    b.Id,
+                    b.Type,
+                    b.Content,
+                    ImageUrl = _mediaUrlService.GetFullMediaUrl(b.ImageUrl),
+                    b.NgayDang,
+                    b.SoBinhLuan,
+                    b.SoChiaSe,
+                    b.LuotThich,
+                    b.IsLiked,
+                    b.AuthorId,
+                    b.AuthorName,
+                    Avartar = _mediaUrlService.GetFullMediaUrl(b.Avartar),
+                    b.TieuDe
+                }));
+
+                // Get random posts
+                var randomPosts = await _context.BaiDang
+                    .Include(p => p.ApplicationUser)
+                    .Where(p => p.DaDuyet == true || p.DaDuyet == null)
+                    .OrderBy(x => Guid.NewGuid())
+                    .Take(3)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        Type = "Post",
+                        Content = p.NoiDung,
+                        ImageUrl = p.DuongDanMedia,
+                        NgayDang = p.NgayDang,
+                        SoBinhLuan = p.SoBinhLuan,
+                        SoChiaSe = p.so_chia_se,
+                        LuotThich = p.LuotThich,
+                        IsLiked = false,
+                        AuthorId = p.NguoiDungId,
+                        AuthorName = p.ApplicationUser != null ? p.ApplicationUser.UserName : "Unknown",
+                        Avartar = p.ApplicationUser != null ? p.ApplicationUser.ProfilePicture : null
+                    })
+                    .ToListAsync();
+
+                feedItems.AddRange(randomPosts.Select(p => new
+                {
+                    p.Id,
+                    p.Type,
+                    p.Content,
+                    ImageUrl = _mediaUrlService.GetFullMediaUrl(p.ImageUrl),
+                    p.NgayDang,
+                    p.SoBinhLuan,
+                    p.SoChiaSe,
+                    p.LuotThich,
+                    p.IsLiked,
+                    p.AuthorId,
+                    p.AuthorName,
+                    Avartar = _mediaUrlService.GetFullMediaUrl(p.Avartar)
+                }));
+
+                // Shuffle and paginate
+                var shuffled = feedItems.OrderBy(x => Guid.NewGuid()).ToList();
+                var paginatedFeed = shuffled.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+                return Ok(paginatedFeed);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new List<object>());
+            }
+        }
+
+        /// <summary>
+        /// Lấy chi tiết bài viết hoặc bài thuốc
+        /// </summary>
+        [HttpGet("detail")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<object>> GetDetail([FromQuery] Guid id, [FromQuery] string? type = null)
+        {
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                // Try to detect type if not provided
+                if (string.IsNullOrEmpty(type))
+                {
+                    var isPost = await _context.BaiDang.AnyAsync(p => p.Id == id);
+                    type = isPost ? "Post" : "BaiThuoc";
+                }
+
+                if (type.Equals("Post", StringComparison.OrdinalIgnoreCase))
+                {
+                    var post = await _context.BaiDang
+                        .Include(p => p.ApplicationUser)
+                        .FirstOrDefaultAsync(p => p.Id == id);
+
+                    if (post == null)
+                    {
+                        return NotFound(new { message = "Không tìm thấy bài viết." });
+                    }
+
+                    var isLiked = userId != null && await _context.BaiDang_LuotThich
+                        .AnyAsync(l => l.baidang_id == id && l.nguoidung_id == userId);
+
+                    return Ok(new
+                    {
+                        post.Id,
+                        Content = post.NoiDung,
+                        ImageUrl = _mediaUrlService.GetFullMediaUrl(post.DuongDanMedia),
+                        NgayDang = post.NgayDang,
+                        SoBinhLuan = post.SoBinhLuan ?? 0,
+                        SoChiaSe = post.so_chia_se,
+                        LuotThich = post.LuotThich ?? 0,
+                        IsLiked = isLiked,
+                        AuthorId = post.NguoiDungId,
+                        AuthorName = post.ApplicationUser?.UserName,
+                        Avartar = _mediaUrlService.GetFullMediaUrl(post.ApplicationUser?.ProfilePicture)
+                    });
+                }
+                else if (type.Equals("BaiThuoc", StringComparison.OrdinalIgnoreCase))
+                {
+                    var baiThuoc = await _context.BaiThuocs
+                        .Include(b => b.ApplicationUser)
+                        .FirstOrDefaultAsync(b => b.Id == id);
+
+                    if (baiThuoc == null)
+                    {
+                        return NotFound(new { message = "Không tìm thấy bài viết." });
+                    }
+
+                    // Increment view count
+                    baiThuoc.SoLuotXem = (baiThuoc.SoLuotXem ?? 0) + 1;
+                    await _context.SaveChangesAsync();
+
+                    // TODO: Check if user liked
+                    var isLiked = false;
+
+                    return Ok(new
+                    {
+                        baiThuoc.Id,
+                        TieuDe = baiThuoc.Ten,
+                        MoTa = baiThuoc.MoTa,
+                        ImageUrl = _mediaUrlService.GetFullMediaUrl(baiThuoc.Image),
+                        NgayTao = baiThuoc.NgayTao,
+                        SoLuotThich = baiThuoc.SoLuotThich ?? 0,
+                        IsLiked = isLiked,
+                        AuthorId = baiThuoc.NguoiDungId,
+                        AuthorName = baiThuoc.ApplicationUser?.UserName,
+                        Avartar = _mediaUrlService.GetFullMediaUrl(baiThuoc.ApplicationUser?.ProfilePicture),
+                        NguyenLieu = (string?)null,  // TODO: Chưa implement
+                        HuongDan = (string?)null,    // TODO: Chưa implement
+                        CongDung = (string?)null     // TODO: Chưa implement
+                    });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Type không hợp lệ. Chỉ chấp nhận 'Post' hoặc 'BaiThuoc'." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Có lỗi xảy ra", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách bài viết có phân trang
         /// </summary>
         /// <param name="page">Trang hiện tại (mặc định 1)</param>
@@ -532,6 +779,80 @@ namespace Hotel_API.Controllers
         }
 
         /// <summary>
+        /// Upload ảnh cho bài viết dưới dạng Base64
+        /// </summary>
+        /// <param name="model">DTO chứa Base64 string của ảnh</param>
+        /// <returns>Base64 string của ảnh đã upload</returns>
+        [HttpPost("upload")]
+        [Authorize]
+        [Consumes("application/json")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public ActionResult<ApiResponse<object>> UploadImage([FromBody] ImageUploadDto model)
+        {
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "Bạn cần đăng nhập để upload ảnh"
+                    });
+                }
+
+                if (string.IsNullOrEmpty(model.ImageBase64) || string.IsNullOrEmpty(model.FileName))
+                {
+                    return BadRequest(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "ImageBase64 và FileName không được để trống"
+                    });
+                }
+
+                // Xác thực Base64
+                var base64Data = Base64ImageService.ExtractBase64(model.ImageBase64);
+
+                if (!Base64ImageService.IsValidImageBase64(base64Data, model.FileName))
+                {
+                    return BadRequest(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "Ảnh không hợp lệ. Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, webp) với kích thước tối đa 5MB"
+                    });
+                }
+
+                // Tạo Data URL cho ảnh
+                var dataUrl = Base64ImageService.CreateDataUrl(base64Data, model.FileName);
+                var fileSize = Base64ImageService.GetBase64Size(base64Data);
+
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = "Upload ảnh thành công",
+                    Data = new
+                    {
+                        fileName = model.FileName,
+                        imageBase64 = dataUrl,
+                        size = fileSize,
+                        mimeType = Base64ImageService.GetMimeType(model.FileName)
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Có lỗi xảy ra khi upload ảnh",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
         /// Xóa bài viết (chỉ người tạo mới được xóa)
         /// </summary>
         /// <param name="id">ID của bài viết</param>
@@ -591,6 +912,432 @@ namespace Hotel_API.Controllers
                 {
                     Success = false,
                     Message = "Có lỗi xảy ra khi xóa bài viết",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách bài viết được người dùng hiện tại yêu thích (Infinity Scroll - Offset based)
+        /// </summary>
+        /// <param name="offset">Số bài viết đã skip (mặc định 0)</param>
+        /// <param name="limit">Số lượng bài viết trả về (mặc định 10, max 50)</param>
+        [HttpGet("user/likes")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<PostInfinityResult>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<ApiResponse<PostInfinityResult>>> GetUserLikedPosts(
+            [FromQuery] int offset = 0,
+            [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (offset < 0) offset = 0;
+                if (limit < 1) limit = 10;
+                if (limit > 50) limit = 100;
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new ApiResponse<PostInfinityResult>
+                    {
+                        Success = false,
+                        Message = "Bạn cần đăng nhập để xem bài viết yêu thích"
+                    });
+                }
+
+                // Lấy danh sách bài viết được yêu thích
+                var likedPosts = await _context.BaiDang_LuotThich
+                    .Include(l => l.BaiDang)
+                    .ThenInclude(p => p!.ApplicationUser)
+                    .Where(l => l.nguoidung_id == userId)
+                    .OrderByDescending(l => l.ngay_thich)
+                    .Skip(offset)
+                    .Take(limit + 1)
+                    .ToListAsync();
+
+                var hasMore = likedPosts.Count > limit;
+                if (hasMore)
+                {
+                    likedPosts = likedPosts.Take(limit).ToList();
+                }
+
+                var postDtos = new List<PostDto>();
+                foreach (var like in likedPosts)
+                {
+                    if (like.BaiDang != null)
+                    {
+                        var p = like.BaiDang;
+                        postDtos.Add(new PostDto
+                        {
+                            Id = p.Id,
+                            NoiDung = p.NoiDung ?? "",
+                            Loai = p.Loai,
+                            DuongDanMedia = _mediaUrlService.GetFullMediaUrl(p.DuongDanMedia),
+                            NgayDang = p.NgayDang,
+                            LuotThich = p.LuotThich ?? 0,
+                            SoBinhLuan = p.SoBinhLuan ?? 0,
+                            SoChiaSe = p.so_chia_se,
+                            IsLiked = true,
+                            Hashtags = p.hashtags,
+                            AuthorId = p.NguoiDungId ?? "",
+                            AuthorName = p.ApplicationUser?.UserName ?? "Unknown",
+                            AuthorAvatar = _mediaUrlService.GetFullMediaUrl(p.ApplicationUser?.ProfilePicture)
+                        });
+                    }
+                }
+
+                return Ok(new ApiResponse<PostInfinityResult>
+                {
+                    Success = true,
+                    Message = "Danh sách bài viết yêu thích",
+                    Data = new PostInfinityResult
+                    {
+                        Posts = postDtos,
+                        HasMore = hasMore
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<PostInfinityResult>
+                {
+                    Success = false,
+                    Message = "Có lỗi xảy ra khi lấy danh sách bài viết yêu thích",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách bài viết do người dùng hiện tại tạo (Infinity Scroll - Offset based)
+        /// </summary>
+        /// <param name="offset">Số bài viết đã skip (mặc định 0)</param>
+        /// <param name="limit">Số lượng bài viết trả về (mặc định 10, max 50)</param>
+        [HttpGet("user/posts")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<PostInfinityResult>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<ApiResponse<PostInfinityResult>>> GetUserPosts(
+            [FromQuery] int offset = 0,
+            [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (offset < 0) offset = 0;
+                if (limit < 1) limit = 10;
+                if (limit > 50) limit = 50;
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new ApiResponse<PostInfinityResult>
+                    {
+                        Success = false,
+                        Message = "Bạn cần đăng nhập để xem bài viết của mình"
+                    });
+                }
+
+                var userPosts = await _context.BaiDang
+                    .Where(p => p.NguoiDungId == userId)
+                    .Include(p => p.ApplicationUser)
+                    .OrderByDescending(p => p.NgayDang)
+                    .Skip(offset)
+                    .Take(limit + 1)
+                    .ToListAsync();
+
+                var hasMore = userPosts.Count > limit;
+                if (hasMore)
+                {
+                    userPosts = userPosts.Take(limit).ToList();
+                }
+
+                var likedPostIds = await _context.BaiDang_LuotThich
+                    .Where(l => l.nguoidung_id == userId)
+                    .Select(l => l.baidang_id)
+                    .ToListAsync();
+
+                var postDtos = userPosts.Select(p => new PostDto
+                {
+                    Id = p.Id,
+                    NoiDung = p.NoiDung ?? "",
+                    Loai = p.Loai,
+                    DuongDanMedia = _mediaUrlService.GetFullMediaUrl(p.DuongDanMedia),
+                    NgayDang = p.NgayDang,
+                    LuotThich = p.LuotThich ?? 0,
+                    SoBinhLuan = p.SoBinhLuan ?? 0,
+                    SoChiaSe = p.so_chia_se,
+                    IsLiked = likedPostIds.Contains(p.Id),
+                    Hashtags = p.hashtags,
+                    AuthorId = p.NguoiDungId ?? "",
+                    AuthorName = p.ApplicationUser?.UserName ?? "Unknown",
+                    AuthorAvatar = _mediaUrlService.GetFullMediaUrl(p.ApplicationUser?.ProfilePicture)
+                }).ToList();
+
+                return Ok(new ApiResponse<PostInfinityResult>
+                {
+                    Success = true,
+                    Message = "Danh sách bài viết của bạn",
+                    Data = new PostInfinityResult
+                    {
+                        Posts = postDtos,
+                        HasMore = hasMore
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<PostInfinityResult>
+                {
+                    Success = false,
+                    Message = "Có lỗi xảy ra khi lấy danh sách bài viết",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách bình luận do người dùng hiện tại tạo (Infinity Scroll - Offset based)
+        /// </summary>
+        /// <param name="offset">Số bình luận đã skip (mặc định 0)</param>
+        /// <param name="limit">Số lượng bình luận trả về (mặc định 10, max 50)</param>
+        [HttpGet("user/comments")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<CommentInfinityResult>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<ApiResponse<CommentInfinityResult>>> GetUserComments(
+            [FromQuery] int offset = 0,
+            [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (offset < 0) offset = 0;
+                if (limit < 1) limit = 10;
+                if (limit > 50) limit = 50;
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new ApiResponse<CommentInfinityResult>
+                    {
+                        Success = false,
+                        Message = "Bạn cần đăng nhập để xem bình luận của mình"
+                    });
+                }
+
+                var userComments = await _context.BinhLuan
+                    .Where(c => c.NguoiDungId == userId && c.ParentCommentId == null)
+                    .Include(c => c.ApplicationUser)
+                    .OrderByDescending(c => c.NgayTao)
+                    .Skip(offset)
+                    .Take(limit + 1)
+                    .ToListAsync();
+
+                var hasMore = userComments.Count > limit;
+                if (hasMore)
+                {
+                    userComments = userComments.Take(limit).ToList();
+                }
+
+                var commentDtos = userComments.Select(c => new CommentDto
+                {
+                    Id = c.Id,
+                    NoiDung = c.NoiDung ?? "",
+                    NgayTao = c.NgayTao,
+                    ParentCommentId = c.ParentCommentId,
+                    UserId = c.NguoiDungId ?? "",
+                    UserName = c.ApplicationUser?.UserName ?? "Unknown",
+                    UserAvatar = _mediaUrlService.GetFullMediaUrl(c.ApplicationUser?.ProfilePicture),
+                    Replies = new List<CommentDto>()
+                }).ToList();
+
+                return Ok(new ApiResponse<CommentInfinityResult>
+                {
+                    Success = true,
+                    Message = "Danh sách bình luận của bạn",
+                    Data = new CommentInfinityResult
+                    {
+                        Comments = commentDtos,
+                        HasMore = hasMore
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<CommentInfinityResult>
+                {
+                    Success = false,
+                    Message = "Có lỗi xảy ra khi lấy danh sách bình luận",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách bài viết của một người dùng bất kỳ (Public - Infinity Scroll - Offset based)
+        /// </summary>
+        /// <param name="userId">ID của người dùng</param>
+        /// <param name="offset">Số bài viết đã skip (mặc định 0)</param>
+        /// <param name="limit">Số lượng bài viết trả về (mặc định 10, max 50)</param>
+        [HttpGet("public/{userId}/posts")]
+        [ProducesResponseType(typeof(ApiResponse<PostInfinityResult>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse<PostInfinityResult>>> GetUserPostsByUserId(
+            string userId,
+            [FromQuery] int offset = 0,
+            [FromQuery] int limit = 100)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    return BadRequest(new ApiResponse<PostInfinityResult>
+                    {
+                        Success = false,
+                        Message = "ID người dùng không được để trống"
+                    });
+                }
+
+                if (offset < 0) offset = 0;
+                if (limit < 1) limit = 10;
+                if (limit > 50) limit = 100;
+
+                var userPosts = await _context.BaiDang
+                    .Where(p => p.NguoiDungId == userId)
+                    .Include(p => p.ApplicationUser)
+                    .OrderByDescending(p => p.NgayDang)
+                    .Skip(offset)
+                    .Take(limit + 1)
+                    .ToListAsync();
+
+                var hasMore = userPosts.Count > limit;
+                if (hasMore)
+                {
+                    userPosts = userPosts.Take(limit).ToList();
+                }
+
+                var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var likedPostIds = new List<Guid>();
+
+                if (!string.IsNullOrEmpty(currentUserId))
+                {
+                    likedPostIds = await _context.BaiDang_LuotThich
+                        .Where(l => l.nguoidung_id == currentUserId)
+                        .Select(l => l.baidang_id)
+                        .ToListAsync();
+                }
+
+                var postDtos = userPosts.Select(p => new PostDto
+                {
+                    Id = p.Id,
+                    NoiDung = p.NoiDung ?? "",
+                    Loai = p.Loai,
+                    DuongDanMedia = _mediaUrlService.GetFullMediaUrl(p.DuongDanMedia),
+                    NgayDang = p.NgayDang,
+                    LuotThich = p.LuotThich ?? 0,
+                    SoBinhLuan = p.SoBinhLuan ?? 0,
+                    SoChiaSe = p.so_chia_se,
+                    IsLiked = likedPostIds.Contains(p.Id),
+                    Hashtags = p.hashtags,
+                    AuthorId = p.NguoiDungId ?? "",
+                    AuthorName = p.ApplicationUser?.UserName ?? "Unknown",
+                    AuthorAvatar = _mediaUrlService.GetFullMediaUrl(p.ApplicationUser?.ProfilePicture)
+                }).ToList();
+
+                return Ok(new ApiResponse<PostInfinityResult>
+                {
+                    Success = true,
+                    Message = "Danh sách bài viết của người dùng",
+                    Data = new PostInfinityResult
+                    {
+                        Posts = postDtos,
+                        HasMore = hasMore
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<PostInfinityResult>
+                {
+                    Success = false,
+                    Message = "Có lỗi xảy ra khi lấy danh sách bài viết",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách bình luận của một người dùng bất kỳ (Public - Infinity Scroll - Offset based)
+        /// </summary>
+        /// <param name="userId">ID của người dùng</param>
+        /// <param name="offset">Số bình luận đã skip (mặc định 0)</param>
+        /// <param name="limit">Số lượng bình luận trả về (mặc định 10, max 50)</param>
+        [HttpGet("public/{userId}/comments")]
+        [ProducesResponseType(typeof(ApiResponse<CommentInfinityResult>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse<CommentInfinityResult>>> GetUserCommentsByUserId(
+            string userId,
+            [FromQuery] int offset = 0,
+            [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    return BadRequest(new ApiResponse<CommentInfinityResult>
+                    {
+                        Success = false,
+                        Message = "ID người dùng không được để trống"
+                    });
+                }
+
+                if (offset < 0) offset = 0;
+                if (limit < 1) limit = 10;
+                if (limit > 50) limit = 100;
+
+                var userComments = await _context.BinhLuan
+                    .Where(c => c.NguoiDungId == userId && c.ParentCommentId == null)
+                    .Include(c => c.ApplicationUser)
+                    .OrderByDescending(c => c.NgayTao)
+                    .Skip(offset)
+                    .Take(limit + 1)
+                    .ToListAsync();
+
+                var hasMore = userComments.Count > limit;
+                if (hasMore)
+                {
+                    userComments = userComments.Take(limit).ToList();
+                }
+
+                var commentDtos = userComments.Select(c => new CommentDto
+                {
+                    Id = c.Id,
+                    NoiDung = c.NoiDung ?? "",
+                    NgayTao = c.NgayTao,
+                    ParentCommentId = c.ParentCommentId,
+                    UserId = c.NguoiDungId ?? "",
+                    UserName = c.ApplicationUser?.UserName ?? "Unknown",
+                    UserAvatar = _mediaUrlService.GetFullMediaUrl(c.ApplicationUser?.ProfilePicture),
+                    Replies = new List<CommentDto>()
+                }).ToList();
+
+                return Ok(new ApiResponse<CommentInfinityResult>
+                {
+                    Success = true,
+                    Message = "Danh sách bình luận của người dùng",
+                    Data = new CommentInfinityResult
+                    {
+                        Comments = commentDtos,
+                        HasMore = hasMore
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<CommentInfinityResult>
+                {
+                    Success = false,
+                    Message = "Có lỗi xảy ra khi lấy danh sách bình luận",
                     Errors = new List<string> { ex.Message }
                 });
             }

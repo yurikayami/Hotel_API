@@ -1,0 +1,101 @@
+### API Search Testing Examples for Visual Studio Code Rest Client
+
+## 1. General Search - All Types
+GET http://localhost:5000/api/search?q=cơm&type=all&page=1&limit=20
+
+###
+
+## 2. General Search - No Diacritics
+GET http://localhost:5000/api/search?q=com+ga&type=all&page=1&limit=20
+
+###
+
+## 3. Search Users
+GET http://localhost:5000/api/search/users?q=nguyễn&page=1&limit=20
+
+###
+
+## 4. Search Users - No Diacritics
+GET http://localhost:5000/api/search/users?q=nguyen&page=1&limit=20
+
+###
+
+## 5. Search Posts
+GET http://localhost:5000/api/search/posts?q=nấu+ăn&page=1&limit=20
+
+###
+
+## 6. Search Posts - No Diacritics
+GET http://localhost:5000/api/search/posts?q=nau+an&page=1&limit=20
+
+###
+
+## 7. Search Medicines
+GET http://localhost:5000/api/search/medicines?q=cảm&page=1&limit=20
+
+###
+
+## 8. Search Medicines - No Diacritics
+GET http://localhost:5000/api/search/medicines?q=cam&page=1&limit=20
+
+###
+
+## 9. Search Dishes
+GET http://localhost:5000/api/search/dishes?q=cơm+gà&page=1&limit=20
+
+###
+
+## 10. Search Dishes - No Diacritics
+GET http://localhost:5000/api/search/dishes?q=com+ga&page=1&limit=20
+
+###
+
+## 11. Get Suggestions - All Types
+GET http://localhost:5000/api/search/suggestions?q=cơ&type=all&limit=10
+
+###
+
+## 12. Get Suggestions - Dishes Only
+GET http://localhost:5000/api/search/suggestions?q=com&type=dishes&limit=10
+
+###
+
+## 13. Get Suggestions - Medicines Only
+GET http://localhost:5000/api/search/suggestions?q=cam&type=medicines&limit=10
+
+###
+
+## 14. Get Suggestions - Users Only
+GET http://localhost:5000/api/search/suggestions?q=nguyen&type=users&limit=10
+
+###
+
+## 15. Search with Pagination - Page 2
+GET http://localhost:5000/api/search?q=ăn&type=all&page=2&limit=10
+
+###
+
+## 16. Search with Max Limit
+GET http://localhost:5000/api/search?q=món&type=all&page=1&limit=100
+
+###
+
+## 17. Search - Query Too Short (Should Fail)
+GET http://localhost:5000/api/search?q=a&type=all&page=1&limit=20
+
+###
+
+## 18. Search - Invalid Type (Should Fail)
+GET http://localhost:5000/api/search?q=cơm&type=invalid&page=1&limit=20
+
+###
+
+## 19. Search - Invalid Page (Should Fail)
+GET http://localhost:5000/api/search?q=cơm&type=all&page=-1&limit=20
+
+###
+
+## 20. Search - Limit Too High (Should Fail)
+GET http://localhost:5000/api/search?q=cơm&type=all&page=1&limit=200
+
+###
